@@ -1,5 +1,11 @@
 <template>
   <q-layout view="lHh Lpr lFf">
+
+    <q-calendar-day/>
+    <q-calendar-task
+
+    />
+
     <q-header elevated>
       <q-toolbar>
         <q-btn
@@ -12,7 +18,7 @@
         />
 
         <q-toolbar-title>
-          Quasar App
+          Task Manager
         </q-toolbar-title>
 
         <div>Quasar v{{ $q.version }}</div>
@@ -45,8 +51,12 @@
   </q-layout>
 </template>
 
+<style src="@quasar/quasar-ui-qcalendar/dist/QCalendarDay.min.css"></style>
+<style src="@quasar/quasar-ui-qcalendar/dist/QCalendarTask.min.css"></style>
+
 <script>
 import EssentialLink from 'components/EssentialLink.vue'
+import { QCalendarDay, QCalendarTask } from '@quasar/quasar-ui-qcalendar'
 
 const linksList = [
   {
@@ -99,7 +109,9 @@ export default defineComponent({
   name: 'MainLayout',
 
   components: {
-    EssentialLink
+    EssentialLink,
+    QCalendarDay,
+    QCalendarTask
   },
 
   setup () {

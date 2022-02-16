@@ -1,6 +1,10 @@
 import { store } from 'quasar/wrappers'
 import { createStore } from 'vuex'
 
+import calendar from './calendar'
+import common from './common'
+// import ThemeBuilder from './ThemeBuilder'
+
 // import example from './module-example'
 
 /*
@@ -15,7 +19,9 @@ import { createStore } from 'vuex'
 export default store(function (/* { ssrContext } */) {
   const Store = createStore({
     modules: {
-      // example
+      calendar,
+      common
+      // ThemeBuilder
     },
 
     // enable strict mode (adds overhead!)

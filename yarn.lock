@@ -2695,6 +2695,11 @@ dot-prop@6.0.1:
   dependencies:
     is-obj "^2.0.0"
 
+drag-drop-touch@^1.3.1:
+  version "1.3.1"
+  resolved "https://registry.yarnpkg.com/drag-drop-touch/-/drag-drop-touch-1.3.1.tgz#bf1a6a89c0e793a04a524ca2317301d684375c7e"
+  integrity sha512-Q0/ZgsnW7VUjn+YqSnp1rvxjjPnZX5YLyVaw28einood+eTMcLzgOgHk8nyqIF9O18J68l+2htlEnbw5GsyTvQ==
+
 duplexer@^0.1.2:
   version "0.1.2"
   resolved "https://registry.yarnpkg.com/duplexer/-/duplexer-0.1.2.tgz#3abe43aef3835f8ae077d136ddce0f276b0400e6"
@@ -4375,6 +4380,11 @@ minimist@1.2.5, minimist@^1.2.0, minimist@^1.2.5:
   version "1.2.5"
   resolved "https://registry.yarnpkg.com/minimist/-/minimist-1.2.5.tgz#67d66014b66a6a8aaa0c083c5fd58df4e4e97602"
   integrity sha512-FM9nNUYrRBAELZQT3xeZQ7fmMOBg6nWNmJKTcgsJeaLstP/UODVpGsr5OhXhhXg6f+qtJ8uiZ+PUxkDWcgIXLw==
+
+mitt@^3.0.0:
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/mitt/-/mitt-3.0.0.tgz#69ef9bd5c80ff6f57473e8d89326d01c414be0bd"
+  integrity sha512-7dX2/10ITVyqh4aOSVI9gdape+t9l2/8QxHrFmUXu4EEUpdlxl6RudZUPZoc+zuY2hk1j7XxVroIVIan/pD/SQ==
 
 mkdirp@^0.5.5:
   version "0.5.5"
