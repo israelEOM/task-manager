@@ -20,11 +20,6 @@
           Task Manager
           <!-- QCalendar <span class="text-subtitle2">v{{ version }}</span> -->
         </q-toolbar-title>
-
-        <!-- <q-btn flat dense label="Today" class="q-mx-md" @click="setToday"></q-btn>
-        <q-btn flat dense round icon="keyboard_arrow_left" @click="onPrev"></q-btn>
-        <q-btn flat dense round icon="keyboard_arrow_right" @click="onNext"></q-btn>
-        <span class="q-mr-xl q-toolbar__title nowrap">{{ title }}</span> -->
         <q-select
           v-model="calendarView"
           :options="viewOptions"
@@ -39,11 +34,6 @@
           :popup-content-class="contentClass"
           style="min-width: 120px; background: transparent; color: white"
         ></q-select>
-
-        <!-- <q-space></q-space> -->
-
-        <!-- <q-btn flat round @click="$q.dark.toggle()" :icon="$q.dark.isActive ? 'brightness_2' : 'brightness_5'" />
-        <div v-if="$q.screen.width > 500">Quasar v{{ $q.version }}</div> -->
       </q-toolbar>
     </q-header>
 
@@ -62,7 +52,7 @@
               no-caps
               class="button"
               style="margin: 2px;"
-              @click="$emit('add:task')"
+              @click="addTask"
             >
               Add Task
             </q-btn>
@@ -70,6 +60,7 @@
         </div>
       </div>
       <q-separator />
+      <filter-calendar></filter-calendar>
     </q-drawer>
 
     <q-page-container>
@@ -81,19 +72,18 @@
 
 <script>
 import { mapGetters } from 'vuex'
-// import { getLocale } from '../util/getLocale'
 import { padTime } from '../util/time'
-// import { version } from 'ui'
+import FilterCalendar from '../components/FilterCalendar.vue'
 
 export default {
   name: 'CalendarLayout',
   components: {
-    // playground: () => import('../components/Playground'),
-    // 'essential-links': () => import('../components/EssentialLinks')
+    FilterCalendar
   },
   data () {
     return {
       // version: version,
+      teste: 'teste',
       leftDrawerOpen: this.$q.platform.is.desktop,
       titleFormatter: null,
       dateFormatter: null,
@@ -249,6 +239,9 @@ export default {
         return !!(time.getDay() % 6)
       }
       return true
+    },
+    addTask () {
+      this.emitter.emit('add:task', {})
     }
   }
 }

@@ -1,10 +1,68 @@
 <template>
   <div class="subcontent">
+    <div class="row justify-center">
+      <div class="q-pa-none">
+        <h5 class="q-pa-none q-mt-sm q-ma-none">{{ months[new Date(selectedDate).getMonth()] }} {{ selectedDate.substr(0, 4) }}</h5>
+      </div>
+    </div>
     <navigation-bar
       @today="onToday"
       @prev="onPrev"
       @next="onNext"
     />
+
+    <!-- display a task -->
+    <q-dialog v-model="displayTask">
+      <div>
+        <q-card v-if="task">
+          <q-toolbar :class="displayClasses(task)" :style="displayStyles(task)" style="min-width: 400px;">
+            <q-toolbar-title>
+              {{ task.type }}
+            </q-toolbar-title>
+            <q-btn flat round color="white" icon="delete" v-close-popup @click="deleteEvent(task)"></q-btn>
+            <q-btn flat round color="white" icon="edit" v-close-popup @click="editEvent(task)"></q-btn>
+            <q-btn flat round color="white" icon="close" v-close-popup></q-btn>
+          </q-toolbar>
+          <q-card-section class="inset-shadow">
+            <div v-if="task.recurring" class="text-caption">{{ getEventDate(event) }}</div>
+            {{ task.property }}
+            <div v-if="task.time" class="text-caption">
+              <div class="row full-width justify-start" style="padding-top: 12px;">
+                <div class="col-12">
+                  <div class="row full-width justify-start">
+                    <div class="col-5" style="padding-left: 20px;">
+                      <strong>Start Time:</strong>
+                    </div>
+                    <div class="col-7">
+                      {{ task.time }}
+                    </div>
+                  </div>
+                  <div class="row full-width justify-start">
+                    <div class="col-5" style="padding-left: 20px;">
+                      <strong>End Time:</strong>
+                    </div>
+                    <div class="col-7">
+                      {{ task.dateTimeEnd.slice(11, 16) }}
+                    </div>
+                  </div>
+                  <div class="row full-width justify-start">
+                    <div class="col-5" style="padding-left: 20px;">
+                      <strong>Duration:</strong>
+                    </div>
+                    <div class="col-7">
+                      {{ convertDurationTime(task.duration) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </q-card-section>
+          <q-card-actions align="right">
+            <q-btn flat label="OK" color="primary" v-close-popup></q-btn>
+          </q-card-actions>
+        </q-card>
+      </div>
+    </q-dialog>
 
     <!-- add/edit a task -->
     <q-dialog v-model="addTask" no-backdrop-dismiss>
@@ -15,71 +73,45 @@
           @submit="onSubmit"
           @reset="onReset"
         >
-          <q-card v-if="addTask" style="width: 400px;">
+          <q-card v-if="addTask" style="min-width: 340px;">
             <q-toolbar class="bg-primary text-white">
               <q-toolbar-title>
-                {{ addOrUpdateEvent }} Event teste2
+                {{ addOrUpdateEvent }} Task
               </q-toolbar-title>
               <q-btn flat round color="white" icon="close" v-close-popup></q-btn>
             </q-toolbar>
             <q-card-section class="inset-shadow">
-              <q-input
-                v-model="eventForm.title"
-                label="Title"
+              <q-select
+                v-model="taskForm.type" :options="typeOptions"  label="Type"
                 :rules="[v => v && v.length > 0 || 'Field cannot be empty']"
-                autofocus
               />
-              <q-input
-                v-model="eventForm.details"
-                label="Details"
+              <q-select
+                v-model="taskForm.city" :options="cityProperties.map(e => { return e.city })"  label="City"
+                :rules="[v => v && v.length > 0 || 'Field cannot be empty']"
+              />
+              <q-select
+                v-model="taskForm.property" :disable="taskForm.city" :options="properties"  label="Property"
+                :rules="[v => v && v.length > 0 || 'Field cannot be empty']"
+              />
+              <q-select
+                v-if="taskForm.recurring"
+                v-model="taskForm.frequency"
+                :options="intervalOptions"
+                label="Frequency"
+                emit-value
+                map-options
               />
               <q-field
-                v-model="eventForm.allDay"
+                v-model="taskForm.recurring"
                 style="padding-bottom: 20px;"
               >
                 <q-checkbox
-                  v-model="eventForm.allDay"
-                  label="All-Day event?"
+                  v-model="taskForm.recurring"
+                  label="Is recurring"
                 />
               </q-field>
-
-              <q-input
-                v-if="eventForm.allDay"
-                v-model="eventForm.dateTimeStart"
-                label="Enter date"
-                mask="####-##-##"
-                color="blue-6"
-                outlined
-                style="padding-bottom: 20px;"
-              >
-                <template #append>
-                  <q-icon name="event" class="cursor-pointer">
-                    <q-popup-proxy v-model="showDateScrollerAllDay">
-
-                      <q-scroller
-                        v-model="eventForm.dateTimeStart"
-                        view="date"
-                        :locale="locale"
-                        :hour24-format="true"
-                        :rounded-borders="true"
-                        border-color="#2196f3"
-                        bar-color="#2196f3"
-                        text-color="white"
-                        color="primary"
-                        inner-text-color="primary"
-                        inner-color="white"
-                        :style="scrollerPopupStyle160"
-                        @close="() => { showDateScrollerAllDay = false }"
-                      />
-
-                    </q-popup-proxy>
-                  </q-icon>
-                </template>
-              </q-input>
-
-              <div v-else>
                 <q-input
-                  v-model="eventForm.dateTimeStart"
+                  v-model="taskForm.dateTimeStart"
                   ref="dateTimeStart"
                   label="Event start date and time"
                   mask="####-##-## ##:##"
@@ -87,33 +119,32 @@
                   outlined
                   color="blue-6"
                 >
-                  <template #append>
+                  <template v-slot:prepend>
                     <q-icon name="event" class="cursor-pointer">
-                      <q-popup-proxy v-model="showDateTimeScrollerStart">
+                      <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                        <q-date v-model="taskForm.dateTimeStart" mask="YYYY-MM-DD HH:mm">
+                          <div class="row items-center justify-end">
+                            <q-btn v-close-popup label="Close" color="primary" flat />
+                          </div>
+                        </q-date>
+                      </q-popup-proxy>
+                    </q-icon>
+                  </template>
 
-                        <q-scroller
-                          v-model="eventForm.dateTimeStart"
-                          view="date-time"
-                          :locale="locale"
-                          :hour24-format="true"
-                          :rounded-borders="true"
-                          border-color="#2196f3"
-                          bar-color="#2196f3"
-                          color="primary"
-                          text-color="white"
-                          inner-color="white"
-                          inner-text-color="primary "
-                          :style="scrollerPopupStyle280"
-                          @close="() => { showDateTimeScrollerStart = false }"
-                        />
-
+                  <template v-slot:append>
+                    <q-icon name="access_time" class="cursor-pointer">
+                      <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                        <q-time v-model="taskForm.dateTimeStart" mask="YYYY-MM-DD HH:mm" format24h>
+                          <div class="row items-center justify-end">
+                            <q-btn v-close-popup label="Close" color="primary" flat />
+                          </div>
+                        </q-time>
                       </q-popup-proxy>
                     </q-icon>
                   </template>
                 </q-input>
-
                 <q-input
-                  v-model="eventForm.dateTimeEnd"
+                  v-model="taskForm.dateTimeEnd"
                   ref="dateTimeEnd"
                   label="Event end date and time"
                   mask="####-##-## ##:##"
@@ -121,71 +152,30 @@
                   color="blue-6"
                   outlined
                 >
-                  <template #append>
+                  <template v-slot:prepend>
                     <q-icon name="event" class="cursor-pointer">
-                      <q-popup-proxy v-model="showDateTimeScrollerEnd">
+                      <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                        <q-date v-model="taskForm.dateTimeEnd" mask="YYYY-MM-DD HH:mm">
+                          <div class="row items-center justify-end">
+                            <q-btn v-close-popup label="Close" color="primary" flat />
+                          </div>
+                        </q-date>
+                      </q-popup-proxy>
+                    </q-icon>
+                  </template>
 
-                        <q-scroller
-                          v-model="eventForm.dateTimeEnd"
-                          view="date-time"
-                          :locale="locale"
-                          :hour24-format="true"
-                          :rounded-borders="true"
-                          border-color="#2196f3"
-                          bar-color="#2196f3"
-                          color="primary"
-                          text-color="white"
-                          inner-color="white"
-                          inner-text-color="primary "
-                          :style="scrollerPopupStyle280"
-                          @close="() => { showDateTimeScrollerEnd = false }"
-                        />
-
+                  <template v-slot:append>
+                    <q-icon name="access_time" class="cursor-pointer">
+                      <q-popup-proxy cover transition-show="scale" transition-hide="scale">
+                        <q-time v-model="taskForm.dateTimeEnd" mask="YYYY-MM-DD HH:mm" format24h>
+                          <div class="row items-center justify-end">
+                            <q-btn v-close-popup label="Close" color="primary" flat />
+                          </div>
+                        </q-time>
                       </q-popup-proxy>
                     </q-icon>
                   </template>
                 </q-input>
-              </div>
-
-              <q-input
-                v-model="eventForm.icon"
-                label="Icon"
-                outlined
-                clearable
-                style="padding-bottom: 20px;"
-              >
-                <template #append>
-                  <q-icon name="extension" class="cursor-pointer">
-                    <q-popup-proxy v-model="showIconPicker">
-
-                      <q-icon-picker
-                        v-model="eventForm.icon"
-                        :filter="eventForm.icon"
-                        icon-set="fontawesome-v5"
-                        tooltips
-                        v-model:pagination="pagination"
-                        style="height: 300px; width: 300px; background-color: white;"
-                      />
-
-                    </q-popup-proxy>
-                  </q-icon>
-                </template>
-              </q-input>
-
-              <q-input
-                v-model="eventForm.bgcolor"
-                label="Color"
-                outlined
-                clearable
-              >
-                <template #append>
-                  <q-icon name="colorize" class="cursor-pointer">
-                    <q-popup-proxy>
-                      <q-color v-model="eventForm.bgcolor"></q-color>
-                    </q-popup-proxy>
-                  </q-icon>
-                </template>
-              </q-input>
 
             </q-card-section>
             <q-card-actions align="right">
@@ -211,14 +201,17 @@
           :view="calendarView"
           :day-min-height="90"
           :day-height="0"
+          :interval-minutes="60 * intervalRangeStep"
           @change="onChange"
           @moved="onMoved"
-          @click-date="onClickDate"
-          @click-day="onClickDay"
+          @click-date="addEventMenu"
+          @click-day="addEventMenu"
+        >
+          <!-- @click-day="addEventMenu"
+          @click-date="addEventMenu"
           @click-workweek="onClickWorkweek"
           @click-head-workweek="onClickHeadWorkweek"
-          @click-head-day="onClickHeadDay"
-        >
+          @click-head-day="onClickHeadDay" -->
           <template #day="{ scope: { timestamp } }">
             <template
               v-for="event in eventsMap[timestamp.date]"
@@ -227,16 +220,55 @@
               <div
                 :class="badgeClasses(event, 'day')"
                 :style="badgeStyles(event, 'day')"
-                class="my-event"
-                @click="showEvent(event)"
+                @click.stop.prevent="showEvent(event)"
               >
                 <div class="title q-calendar__ellipsis">
-                  {{ event.title + (event.time ? ' - ' + event.time : '') }}
-                  <q-tooltip>{{ event.details }}</q-tooltip>
+                  {{ event.type + (event.time ? ' - ' + event.time : '') }}
                 </div>
               </div>
             </template>
           </template>
+          <template #day-header="{ scope: { timestamp } }">
+            teste
+            <template
+              v-for="event in eventsMap[timestamp.date]"
+              :key="event.id"
+            >
+              <div
+                :class="badgeClasses(event, 'header')"
+                :style="badgeStyles(event, 'header')"
+                @click.stop.prevent="showEvent(event)"
+                style="width: 100%; cursor: pointer; height: 14px; max-height: 14px"
+              >
+                <div class="title q-calendar__ellipsis">
+                  {{ event.type + (event.time ? ' - ' + event.time : '') }}
+                </div>
+              </div>
+            </template>
+          </template>
+
+          <template #day-body="{ scope: { timestamp, timeStartPos, timeDurationHeight } }">
+            <!-- {{ timeDurationHeight }} -->
+            <template
+              v-for="event in eventsMap[timestamp.date]"
+              :key="event.id"
+            >
+              <q-badge
+                class="my-event justify-center"
+                :class="badgeClasses(event, 'body')"
+                :style="badgeStyles(event, 'body', timeStartPos, timeDurationHeight)"
+                @click.stop.prevent="showEvent(event)"
+                :draggable="true"
+                @dragstart="(e) => onDragStart(e, event)"
+                @dragend="(e) => onDragEnd(e, event)"
+                @dragenter="(e) => onDragEnter(e, event)"
+                @touchmove="(e) => {}"
+              >
+                <span class="ellipsis">{{ event.type }}</span>
+              </q-badge>
+            </template>
+        </template>
+
         </q-calendar>
       </div>
     </div>
@@ -244,26 +276,47 @@
 </template>
 
 <script>
+import { mapGetters } from 'vuex'
+import events from '../util/events'
+import { isCssColor } from '../util/color'
 import {
   QCalendar,
   addToDate,
-  parseDate,
+  getTime,
+  getDateTime,
+  getDayIdentifier,
+  getTimeIdentifier,
   parseTimestamp,
+  makeDateTime,
+  isBetweenDates,
   today
 } from '@quasar/quasar-ui-qcalendar/src/index.js'
+import { date, colors } from 'quasar'
+import { stop, prevent, stopAndPrevent } from 'quasar/src/utils/event'
 import '@quasar/quasar-ui-qcalendar/src/QCalendarVariables.sass'
 import '@quasar/quasar-ui-qcalendar/src/QCalendarTransitions.sass'
 import '@quasar/quasar-ui-qcalendar/src/QCalendarMonth.sass'
 import { defineComponent } from 'vue'
 import NavigationBar from '../components/NavigationBar.vue'
-// The function below is used to set up our demo data
-const CURRENT_DAY = new Date()
-function getCurrentDay (day) {
-  const newDay = new Date(CURRENT_DAY)
-  newDay.setDate(day)
-  const tm = parseDate(newDay)
-  return tm.date
+
+// const CURRENT_DAY = new Date()
+
+const formDefault = {
+  type: '',
+  city: '',
+  property: '',
+  recurring: false,
+  dateTimeStart: '',
+  dateTimeEnd: '',
+  bgcolor: '#0000FF'
 }
+
+// function getCurrentDay (day) {
+//   const newDay = new Date(CURRENT_DAY)
+//   newDay.setDate(day)
+//   const tm = parseDate(newDay)
+//   return tm.date
+// }
 export default defineComponent({
   name: 'MonthSlotDay',
   components: {
@@ -272,108 +325,73 @@ export default defineComponent({
   },
   data () {
     return {
-      selectedDate: today(),
+      // selectedDate: today(),
       addTask: false,
       contextDay: null,
       displayTask: false,
       task: null,
-      events: [
-        {
-          id: 1,
-          title: '1st of the Month',
-          details: 'Everything is funny as long as it is happening to someone else',
-          date: getCurrentDay(1),
-          bgcolor: 'orange'
-        },
-        {
-          id: 2,
-          title: 'Sisters Birthday',
-          details: 'Buy a nice present',
-          date: getCurrentDay(4),
-          bgcolor: 'green',
-          icon: 'fas fa-birthday-cake'
-        },
-        {
-          id: 3,
-          title: 'Meeting',
-          details: 'Time to pitch my idea to the company',
-          date: getCurrentDay(10),
-          time: '10:00',
-          duration: 120,
-          bgcolor: 'red',
-          icon: 'fas fa-handshake'
-        },
-        {
-          id: 4,
-          title: 'Lunch',
-          details: 'Company is paying!',
-          date: getCurrentDay(10),
-          time: '11:30',
-          duration: 90,
-          bgcolor: 'teal',
-          icon: 'fas fa-hamburger'
-        },
-        {
-          id: 5,
-          title: 'Visit mom',
-          details: 'Always a nice chat with mom',
-          date: getCurrentDay(20),
-          time: '17:00',
-          duration: 90,
-          bgcolor: 'grey',
-          icon: 'fas fa-car'
-        },
-        {
-          id: 6,
-          title: 'Conference',
-          details: 'Teaching Javascript 101',
-          date: getCurrentDay(22),
-          time: '08:00',
-          duration: 540,
-          bgcolor: 'blue',
-          icon: 'fas fa-chalkboard-teacher'
-        },
-        {
-          id: 7,
-          title: 'Girlfriend',
-          details: 'Meet GF for dinner at Swanky Restaurant',
-          date: getCurrentDay(22),
-          time: '19:00',
-          duration: 180,
-          bgcolor: 'teal',
-          icon: 'fas fa-utensils'
-        },
-        {
-          id: 8,
-          title: 'Rowing',
-          details: 'Stay in shape!',
-          date: getCurrentDay(27),
-          bgcolor: 'purple',
-          icon: 'rowing',
-          days: 2
-        },
-        {
-          id: 9,
-          title: 'Fishing',
-          details: 'Time for some weekend R&R',
-          date: getCurrentDay(27),
-          bgcolor: 'purple',
-          icon: 'fas fa-fish',
-          days: 2
-        },
-        {
-          id: 10,
-          title: 'Vacation',
-          details: 'Trails and hikes, going camping! Don\'t forget to bring bear spray!',
-          date: getCurrentDay(29),
-          bgcolor: 'purple',
-          icon: 'fas fa-plane',
-          days: 5
-        }
-      ]
+      taskForm: { ...formDefault },
+      typeOptions: this.$store.state.calendar.typeOptions,
+      intervalOptions: this.$store.state.calendar.intervalOptions,
+      cityProperties: this.$store.state.calendar.cityProperties,
+      months: this.$store.state.calendar.months,
+      events: []
+    }
+  },
+  mounted () {
+    this.events = events
+    this.emitter.on('add:task', (e) => {
+      e.scope = {}
+      e.scope.timestamp = parseTimestamp(today())
+      this.addEventMenu(e)
+    })
+  },
+  watch: {
+    'taskForm.property' (val) {
+      let color = null
+      color = this.cityProperties.filter(
+        e => { return e.city === this.taskForm.city }
+      ).map(
+        e => { return e.properties.filter(e => { return e.name === val })[0].color }
+      )[0]
+
+      this.taskForm.bgcolor = color
     }
   },
   computed: {
+    ...mapGetters({
+      locale: 'calendar/locale',
+      titlebarHeight: 'common/titlebarHeight',
+      maxDays: 'calendar/maxDays',
+      bordered: 'calendar/bordered',
+      fiveDayWorkWeek: 'calendar/fiveDayWorkWeek',
+      firstDayMonday: 'calendar/firstDayMonday',
+      shortMonthLabel: 'calendar/shortMonthLabel',
+      showDayOfYearLabel: 'calendar/showDayOfYearLabel',
+      shortWeekdayLabel: 'calendar/shortWeekdayLabel',
+      shortIntervalLabel: 'calendar/shortIntervalLabel',
+      hour24Format: 'calendar/hour24Format',
+      hideHeader: 'calendar/hideHeader',
+      noScroll: 'calendar/noScroll',
+      showMonthLabel: 'calendar/showMonthLabel',
+      showWorkWeeks: 'calendar/showWorkWeeks',
+      noDefaultHeaderBtn: 'calendar/noDefaultHeaderBtn',
+      noDefaultHeaderText: 'calendar/noDefaultHeaderText',
+      intervalRange: 'calendar/intervalRange',
+      intervalRangeStep: 'calendar/intervalRangeStep',
+      intervalHeight: 'calendar/intervalHeight',
+      resourceHeight: 'calendar/resourceHeight',
+      resourceWidth: 'calendar/resourceWidth',
+      dayHeight: 'calendar/dayHeight'
+    }),
+    selectedDate: {
+      get () {
+        return this.$store.state.calendar.selectedDate
+      },
+      set (date) {
+        this.$store.commit('calendar/selectedDate', date)
+      }
+    },
     calendarView: {
       get () {
         return this.$store.state.calendar.calendarView
@@ -381,6 +399,19 @@ export default defineComponent({
       set (view) {
         this.$store.commit('calendar/calendarView', view)
       }
+    },
+    properties () {
+      let data = []
+
+      if (this.taskForm.city) {
+        data = this.cityProperties.filter(
+          e => { return e.city === this.taskForm.city }
+        ).map(
+          e => { return e.properties.map(e => { return e.name }) }
+        )[0]
+      }
+
+      return data
     },
     eventsMap () {
       const map = {}
@@ -390,8 +421,7 @@ export default defineComponent({
           if (event.days !== undefined) {
             let timestamp = parseTimestamp(event.date)
             let days = event.days
-            // add a new event for each day
-            // skip 1st one which would have been done above
+
             do {
               timestamp = addToDate(timestamp, { day: 1 })
               if (!map[timestamp.date]) {
@@ -401,10 +431,37 @@ export default defineComponent({
               // already accounted for 1st day
             } while (--days > 1)
           }
+
+          if (event.frequency !== undefined) {
+            let timestamp = parseTimestamp(event.date)
+            // let days = 365
+            const end = addToDate(timestamp, { month: 3 })
+
+            do {
+              if (event.frequency === '30') {
+                timestamp = addToDate(timestamp, { month: 1 })
+              } else {
+                timestamp = addToDate(timestamp, { day: event.frequency })
+              }
+
+              if (!map[timestamp.date]) {
+                map[timestamp.date] = []
+              }
+              map[timestamp.date].push(event)
+              // already accounted for 1st day
+            } while (new Date(timestamp.date) < new Date(end.date))
+            // } while (--days > 1)
+          }
         })
       }
-      console.log(map)
+      // console.log(map)
       return map
+    },
+    addOrUpdateEvent () {
+      if (this.contextDay && this.contextDay.bgcolor) {
+        return 'Update'
+      }
+      return 'Add'
     }
   },
   methods: {
@@ -461,52 +518,260 @@ export default defineComponent({
 
     },
 
+    resetForm () {
+      this.taskForm = { ...formDefault }
+    },
+
     showEvent (task) {
       if (this.calendarView.indexOf('agenda') < 0) {
-        this.tasl = task
+        console.log(this.calendarView.indexOf('agenda'))
+        this.task = task
+        console.log(this.task)
         this.displayTask = true
       }
     },
 
+    addEventMenu ({ scope, event }) {
+      console.log(scope)
+      if (scope.timestamp.disabled === true || this.calendarView.indexOf('scheduler') > -1 || this.calendarView.indexOf('agenda') > -1) {
+        return
+      }
+      this.resetForm()
+      this.contextDay = { ...scope.timestamp }
+      let timestamp
+      if (this.contextDay.hasTime === true) {
+        timestamp = this.adjustTimestamp(this.contextDay)
+        const endTime = addToDate(timestamp, { hour: 1 })
+        this.taskForm.dateTimeEnd = getDateTime(endTime)
+      } else {
+        timestamp = parseTimestamp(this.contextDay.date + ' 00:00')
+      }
+      this.taskForm.dateTimeStart = getDateTime(timestamp)
+      this.taskForm.recurring = this.contextDay.hasTime === false
+      this.taskForm.bgcolor = '#0000FF' // starting color
+      this.addTask = true // show dialog
+    },
+
     saveEvent () {
-      const self = this
       this.$refs.event.validate().then((success) => {
         if (success) {
           // close the dialog
           this.addTask = false
-          const form = { ...self.eventForm }
+          const form = { ...this.taskForm }
+          console.log(form)
           let update = false
-          if (self.contextDay.bgcolor) {
+          if (this.contextDay.bgcolor) {
             // an update
             update = true
           } else {
             // an add
           }
           const data = {
-            title: form.title,
-            details: form.details,
-            icon: form.icon,
             bgcolor: form.bgcolor,
+            type: form.type,
+            city: form.city,
+            property: form.property,
+            dateTimeStart: form.dateTimeStart,
+            dateTimeEnd: form.dateTimeEnd,
+            time: String(form.dateTimeStart).slice(11, 16),
+            duration: this.getDuration(form.dateTimeStart, form.dateTimeEnd, 'minutes'),
             date: String(form.dateTimeStart).slice(0, 10).replace(/\//g, '-')
           }
-          if (form.allDay === false) {
-            // get time into separate var
-            data.time = String(form.dateTimeStart).slice(11, 16)
-            data.duration = self.getDuration(form.dateTimeStart, form.dateTimeEnd, 'minutes')
+          if (form.recurring === true) {
+            data.frequency = form.frequency
           }
           if (update === true) {
-            const index = self.findEventIndex(self.contextDay)
+            console.log('update')
+            const index = this.findEventIndex(this.contextDay)
             if (index >= 0) {
-              self.events.splice(index, 1, { ...data })
+              this.events.splice(index, 1, { ...data })
             }
           } else {
             // add to events array
-            self.events.push(data)
+            this.events.push(data)
           }
 
-          self.contextDay = null
+          console.log(this.events)
+
+          this.contextDay = null
         }
       })
+    },
+    editEvent (task) {
+      this.resetForm()
+      this.contextDay = { ...task }
+
+      console.log(task)
+      this.taskForm.bgcolor = task.bgcolor
+      this.taskForm.type = task.type
+      this.taskForm.city = task.city
+      this.taskForm.property = task.property
+      this.taskForm.dateTimeStart = task.dateTimeStart
+      this.taskForm.dateTimeEnd = task.dateTimeEnd
+      this.taskForm.time = task.time
+      this.taskForm.duration = task.duration
+      this.taskForm.date = task.date
+      if (task.frequency) {
+        this.taskForm.frequency = task.frequency
+        this.taskForm.recurring = true
+      } else {
+        this.taskForm.recurring = false
+      }
+      console.log('edit', this.taskForm)
+      this.addTask = true // show dialog
+    },
+    deleteEvent (event) {
+      const index = this.findEventIndex(event)
+      if (index >= 0) {
+        this.events.splice(index, 1)
+      }
+    },
+    getEvents (dt) {
+      const currentDate = parseTimestamp(dt)
+      const events = []
+      for (let i = 0; i < this.events.length; ++i) {
+        let added = false
+        const event = this.events[i]
+        if (event.date === dt) {
+          if (event.time !== undefined) {
+            if (events.length > 0) {
+              // check for overlapping times
+              const startTime = parseTimestamp(event.date + ' ' + event.time)
+              const endTime = addToDate(startTime, { minute: event.duration })
+              for (let j = 0; j < events.length; ++j) {
+                const evt = events[j]
+                if (evt.time !== undefined) {
+                  const startTime2 = parseTimestamp(evt.date + ' ' + evt.time)
+                  const endTime2 = addToDate(startTime2, { minute: evt.duration })
+                  if (isBetweenDates(startTime, startTime2, endTime2) || isBetweenDates(endTime, startTime2, endTime2)) {
+                    evt.side = 'left'
+                    event.side = 'right'
+                    events.push(event)
+                    added = true
+                    break
+                  }
+                }
+              }
+            }
+          }
+          if (!added) {
+            event.side = undefined
+            events.push(event)
+          }
+        } else if (event.days) {
+          // check for overlapping dates
+          const startDate = parseTimestamp(event.date)
+          const endDate = addToDate(startDate, { day: event.days })
+          if (isBetweenDates(currentDate, startDate, endDate)) {
+            events.push(event)
+            added = true
+          }
+        }
+      }
+      return events
+    },
+    adjustTimestamp (day) {
+      day.minute = day.minute < 15 || day.minute >= 45 ? 0 : 30
+      day.time = getTime(day)
+      return day
+    },
+    checkDateTimeStart (/* val */) {
+      this.$refs.dateTimeEnd.resetValidation()
+      if (this.taskForm.dateTimeStart && this.taskForm.dateTimeEnd) {
+        const timestampStart = parseTimestamp(this.taskForm.dateTimeStart)
+        const timestampEnd = parseTimestamp(this.taskForm.dateTimeEnd)
+        const dayStart = getDayIdentifier(timestampStart)
+        const dayEnd = getDayIdentifier(timestampEnd)
+        if (dayStart < dayEnd) {
+          return true
+        } else if (dayStart > dayEnd) {
+          return false
+        } else {
+          const timeStart = getTimeIdentifier(timestampStart)
+          const timeEnd = getTimeIdentifier(timestampEnd)
+          if (timeStart <= timeEnd) {
+            return true
+          } else {
+            return false
+          }
+        }
+      }
+      return false
+    },
+
+    checkDateTimeEnd (val) {
+      this.$refs.dateTimeStart.resetValidation()
+      if (this.taskForm.dateTimeStart && this.taskForm.dateTimeEnd) {
+        const timestampEnd = parseTimestamp(this.taskForm.dateTimeEnd)
+        const timestampStart = parseTimestamp(this.taskForm.dateTimeStart)
+        const dayEnd = getDayIdentifier(timestampEnd)
+        const dayStart = getDayIdentifier(timestampStart)
+        if (dayEnd > dayStart) {
+          return true
+        } else if (dayEnd < dayStart) {
+          return false
+        } else {
+          const timeEnd = getTimeIdentifier(timestampEnd)
+          const timeStart = getTimeIdentifier(timestampStart)
+          if (timeEnd >= timeStart) {
+            return true
+          } else {
+            return false
+          }
+        }
+      }
+      return false
+    },
+    getDuration (dateTimeStart, dateTimeEnd, unit) {
+      const start = makeDateTime(parseTimestamp(dateTimeStart))
+      const end = makeDateTime(parseTimestamp(dateTimeEnd))
+      const diff = date.getDateDiff(end, start, unit)
+      return diff
+    },
+    convertDurationTime (n) {
+      const num = n
+      const days = Math.floor(((num / 60) / 24))
+      const hours = (num / 60)
+      const rhours = Math.floor(hours)
+      const rshours = Math.floor(hours - (days * 24))
+      const minutes = (hours - rhours) * 60
+      const rminutes = Math.round(minutes)
+      return (days > 0 ? days + ' days and ' : '') + (rshours > 0 ? rshours + ' hour(s) and ' : '') + rminutes + ' minute(s).'
+    },
+    findEventIndex (event) {
+      for (let i = 0; i < this.events.length; ++i) {
+        if (event.title === this.events[i].title &&
+          event.details === this.events[i].details &&
+          event.date === this.events[i].date) {
+          return i
+        }
+      }
+    },
+    displayClasses (event) {
+      return {
+        [`bg-${event.bgcolor}`]: !isCssColor(event.bgcolor),
+        'text-white': !isCssColor(event.bgcolor)
+      }
+    },
+    displayStyles (event) {
+      const s = {}
+      if (isCssColor(event.bgcolor)) {
+        s['background-color'] = event.bgcolor
+        s.color = colors.luminosity(event.bgcolor) > 0.5 ? 'black' : 'white'
+      }
+      return s
+    },
+    onDragEnter (ev, event) {
+      prevent(ev)
+    },
+    onDragStart (ev, event) {
+      this.dragging = true
+      this.draggedEvent = event
+      stop(ev)
+    },
+    onDragEnd (ev, event) {
+      stopAndPrevent(ev)
+      this.resetDrag()
     }
   }
 })
